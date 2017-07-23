@@ -9,10 +9,10 @@
 %define aversion 1.2.4.1
 
 # Do we want to disable building of x11-askpass? (1=yes 0=no)
-%define no_x11_askpass 0
+%define no_x11_askpass 1
 
 # Do we want to disable building of gnome-askpass? (1=yes 0=no)
-%define no_gnome_askpass 0
+%define no_gnome_askpass 1
 
 # Do we want to link against a static libcrypto? (1=yes 0=no)
 %define static_libcrypto 0
@@ -27,7 +27,7 @@
 %define build6x 0
 
 # Do we want kerberos5 support (1=yes 0=no)
-%define kerberos5 1
+%define kerberos5 0
 
 # Reserve options to override askpass settings with:
 # rpm -ba|--rebuild --define 'skip_xxx 1'
@@ -86,7 +86,7 @@ PreReq: initscripts >= 5.00
 %else
 Requires: initscripts >= 5.20
 %endif
-BuildRequires: perl, openssl-devel
+BuildRequires: perl, openssl-devel, pam-devel
 BuildRequires: /bin/login
 %if ! %{build6x}
 BuildRequires: glibc-devel, pam
@@ -143,13 +143,13 @@ it up to date in terms of security and features, as well as removing
 all patented algorithms to separate libraries.
 
 This package includes the core files necessary for both the OpenSSH
-client and server. To make this package useful, you should also
+client and server. To make -j`nproc` this package useful, you should also
 install openssh-clients, openssh-server, or both.
 
 %description clients
 OpenSSH is a free version of SSH (Secure SHell), a program for logging
 into and executing commands on a remote machine. This package includes
-the clients necessary to make encrypted connections to SSH servers.
+the clients necessary to make -j`nproc` encrypted connections to SSH servers.
 You'll also need to install the openssh package on OpenSSH clients.
 
 %description server
@@ -189,20 +189,19 @@ echo K5DIR=$K5DIR
 %endif
 
 %configure \
-	--sysconfdir=%{_sysconfdir}/ssh \
-	--libexecdir=%{_libexecdir}/openssh \
-	--datadir=%{_datadir}/openssh \
-	--with-default-path=/usr/local/bin:/bin:/usr/bin \
-	--with-superuser-path=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin \
-	--with-privsep-path=%{_var}/empty/sshd \
-	--with-md5-passwords \
+    --sysconfdir=%{_sysconfdir}/ssh \
+    --libexecdir=%{_libexecdir}/openssh \
+    --datadir=%{_datadir}/openssh \
+    --with-default-path=/usr/local/bin:/usr/bin \
+    --with-superuser-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
+    --with-privsep-path=%{_var}/empty/sshd \
+    --disable-strip \
+    --without-zlib-version-check \
+    --with-ssl-engine \
+    --with-ipaddr-display \
+    --with-pam \ 
 %if %{scard}
 	--with-smartcard \
-%endif
-%if %{rescue}
-	--without-pam \
-%else
-	--with-pam \
 %endif
 %if %{kerberos5}
 	 --with-kerberos5=$K5DIR \
@@ -213,13 +212,13 @@ echo K5DIR=$K5DIR
 perl -pi -e "s|-lcrypto|%{_libdir}/libcrypto.a|g" Makefile
 %endif
 
-make
+make -j`nproc`
 
 %if ! %{no_x11_askpass}
 pushd x11-ssh-askpass-%{aversion}
 %configure --libexecdir=%{_libexecdir}/openssh
 xmkmf -a
-make
+make -j`nproc`
 popd
 %endif
 
@@ -234,10 +233,10 @@ popd
 %if ! %{no_gnome_askpass}
 pushd contrib
 if [ $gtk2 = yes ] ; then
-	make gnome-ssh-askpass2
+	make -j`nproc` gnome-ssh-askpass2
 	mv gnome-ssh-askpass2 gnome-ssh-askpass
 else
-	make gnome-ssh-askpass1
+	make -j`nproc` gnome-ssh-askpass1
 	mv gnome-ssh-askpass1 gnome-ssh-askpass
 fi
 popd
@@ -249,7 +248,7 @@ mkdir -p -m755 $RPM_BUILD_ROOT%{_sysconfdir}/ssh
 mkdir -p -m755 $RPM_BUILD_ROOT%{_libexecdir}/openssh
 mkdir -p -m755 $RPM_BUILD_ROOT%{_var}/empty/sshd
 
-make install DESTDIR=$RPM_BUILD_ROOT
+make -j`nproc` install DESTDIR=$RPM_BUILD_ROOT
 
 install -d $RPM_BUILD_ROOT/etc/pam.d/
 install -d $RPM_BUILD_ROOT/etc/rc.d/init.d
@@ -567,7 +566,7 @@ fi
 
 * Sun Apr  8 2001 Preston Brown <pbrown@redhat.com>
 - remove explicit openssl requirement, fixes builddistro issue
-- make initscript stop() function wait until sshd really dead to avoid
+- make -j`nproc` initscript stop() function wait until sshd really dead to avoid
   races in condrestart
 
 * Mon Apr  2 2001 Nalin Dahyabhai <nalin@redhat.com>
@@ -579,7 +578,7 @@ fi
 - require the version of openssl we had when we were built
 
 * Fri Mar 23 2001 Nalin Dahyabhai <nalin@redhat.com>
-- make do_pam_setcred() smart enough to know when to establish creds and
+- make -j`nproc` do_pam_setcred() smart enough to know when to establish creds and
   when to reinitialize them
 - add in a couple of other fixes from Damien for inclusion in the errata
 
@@ -591,7 +590,7 @@ fi
 * Tue Mar 20 2001 Nalin Dahyabhai <nalin@redhat.com>
 - update to 2.5.2p1 (includes endianness fixes in the rijndael implementation)
 - don't enable challenge-response by default until we find a way to not
-  have too many userauth requests (we may make up to six pubkey and up to
+  have too many userauth requests (we may make -j`nproc` up to six pubkey and up to
   three password attempts as it is)
 - remove build dependency on rsh to match openssh.com's packages more closely
 
@@ -682,7 +681,7 @@ fi
 - Build with debugging flags.  Build root policies strip all binaries anyway.
 
 * Tue Nov 21 2000 Nalin Dahyabhai <nalin@redhat.com>
-- Use DESTDIR instead of %%makeinstall.
+- Use DESTDIR instead of %%make -j`nproc`install.
 - Remove /usr/X11R6/bin from the path-fixing patch.
 
 * Mon Nov 20 2000 Nalin Dahyabhai <nalin@redhat.com>
@@ -787,7 +786,7 @@ fi
 - Added 'Obsoletes' directives
 
 * Tue Nov 09 1999 Damien Miller <djm@ibs.com.au>
-- Use make install
+- Use make -j`nproc` install
 - Subpackages
 
 * Mon Nov 08 1999 Damien Miller <djm@ibs.com.au>
